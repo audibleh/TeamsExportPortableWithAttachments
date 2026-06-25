@@ -1,0 +1,21 @@
+# Snyk policy file. https://docs.snyk.io/manage-issues/policies/the-.snyk-file
+# Exclude bundled Python runtime - this is the portable CPython.framework
+# shipped with the export bundle. It contains documentation examples
+# (notably the WASM/emscripten browser_test package.json) which are never
+# executed by this project and only exist for upstream Python users.
+version: v1.25.0
+exclude:
+  global:
+    - runtime/**
+    - .venv/**
+    - .venv-export/**
+
+# Snyk Code ignores
+ignore:
+  'python/PT':
+    - 'src/msteams_export/archive/generate.py > *':
+        reason: >-
+          CLI entrypoint (__main__) where the operator deliberately supplies
+          export and output paths as positional arguments. Paths are resolved
+          with Path.expanduser().resolve() before use. Not an attack surface.
+        expires: 2099-12-31T00:00:00.000Z

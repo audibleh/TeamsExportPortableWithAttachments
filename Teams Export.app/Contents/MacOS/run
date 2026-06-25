@@ -1,0 +1,11 @@
+#!/bin/bash
+# Teams Export — macOS App Launcher
+# This wrapper launches the main export script in a Terminal window.
+
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+
+# Remove quarantine from all files in our directory (fixes Gatekeeper for sub-scripts)
+xattr -cr "$DIR" 2>/dev/null
+
+# Open the actual export script in Terminal
+open -a Terminal "$DIR/export-mac.command"

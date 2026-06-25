@@ -1,0 +1,41 @@
+# ── Personal data — NEVER commit ──
+exports/
+teams-archive*.html
+teams-archive/
+.profile/
+.state/
+
+# ── Runtime / build artifacts ──
+.venv/
+.venv-export/
+.python/
+runtime/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ── Dev / internal scripts ──
+generate_variants.py
+test_exports/
+*_backup.py
+
+# ── OS junk ──
+.DS_Store
+Thumbs.db
+
+# ── Doc images (not needed for distribution) ──
+Doc/image.png
+Doc/logo_small.png
+
+# ── Manifest files (build internals) ──
+MACOS_RUNTIME_CODESIGN_MANIFEST.json
+PORTABLE_BUILD_MANIFEST.json
+RUNTIME_MANIFEST.json
+VENDORED_DYLIBS_MANIFEST.json
+
+# ── Backup files ──
+*_backup.py
+generate_backup.py
