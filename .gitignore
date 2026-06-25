@@ -39,3 +39,6 @@ VENDORED_DYLIBS_MANIFEST.json
 # ── Backup files ──
 *_backup.py
 generate_backup.py
+
+# ── Local one-time helper (contains no secrets, but not part of the project) ──
+push-to-github.sh
