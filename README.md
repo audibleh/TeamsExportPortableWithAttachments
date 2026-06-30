@@ -1,192 +1,207 @@
 # Teams Chat Export (with attachments)
 
-Export all your Microsoft Teams chat history into an HTML page you can keep forever — **now with the images _and_ documents from your chats saved locally.**
-Works on **Windows** and **macOS**. No technical skills required.
+Save your entire Microsoft Teams chat history as a single web page you can keep forever — **with the pictures _and_ the documents from your chats stored right next to it.**
+
+Works on **Windows** and **macOS**. No technical skills needed — you mostly just sign in and wait.
 
 ---
 
-## What does it do?
+## What you get
 
-This tool reads your Teams chat history through Microsoft Edge and saves it as a `teams-archive` folder containing an `index.html` page plus:
+A folder called **`teams-archive`** containing:
 
-- an `images/` folder with every picture from your chats (shown inline in the messages), and
-- a `files/` folder with attached documents (Office files, PDFs, etc.) saved as local, clickable links.
+- **`index.html`** — a page that opens in any browser and works completely offline. Search, filter, and read all your conversations.
+- **`images/`** — every picture from your chats, shown right inside the messages.
+- **`files/`** — attached documents (Word, Excel, PowerPoint, PDF…) saved locally as clickable links.
+- **`unrecoverable-attachments.csv`** — an honest list of anything that couldn't be downloaded (for example a file in someone else's private OneDrive, or an old expired link).
 
-The page works offline in any browser — you can search, filter, and browse all your conversations, images show up directly inside the messages, and documents open straight from your machine.
+**Everything stays on your computer. Nothing is ever uploaded anywhere.**
 
-**Your data stays 100% on your machine. Nothing is uploaded anywhere.**
+---
 
-> Some attachments can't always be recovered (for example files in another person's private OneDrive, or expired links). Those are listed in `unrecoverable-attachments.csv` next to the archive so you have a complete record.
+## Before you start (read this first)
+
+You'll get the best result if you have these ready:
+
+1. **Close Microsoft Edge completely.** The tool needs Edge to itself.
+2. **Know your Teams sign-in** (your work account).
+3. **Know your SharePoint/OneDrive address** if you want documents too — it usually looks like
+   `https://YOURCOMPANY.sharepoint.com` (replace `YOURCOMPANY` with your organisation's name).
+
+> ⏱️ The whole process takes anywhere from a few minutes to about an hour, depending on how many chats you have. You can leave it running.
 
 ---
 
 ## Download
 
-1. Click the green **Code** button at the top of this page
-2. Choose **Download ZIP**
-3. Unzip the file to a location you can find (e.g. Desktop or Downloads)
+1. Click the green **Code** button at the top of this page.
+2. Choose **Download ZIP**.
+3. Unzip it somewhere easy to find (e.g. **Desktop** or **Downloads**).
 
 ---
 
-## Windows
+## How it works (the 6 automatic steps)
 
-### Step 1: Run the export
+When you run the tool it does everything for you, in order:
 
-Double-click **`export-windows.bat`**
+1. Sets up a small private copy of Python (first run only).
+2. Opens a browser window so **you can sign in**. ← *this is the only part that needs you*
+3. Exports all your chats.
+4. Downloads the images from your chats.
+5. Downloads the documents (if you signed in to SharePoint).
+6. Builds the `teams-archive` page and lets you save it.
 
-Windows may show a SmartScreen warning — click **"More info"** → **"Run anyway"**.
-
-The script automatically installs Python if needed. No admin rights required.
-
-### Step 2: Log in to Teams
-
-A browser window opens. If you're not already logged in:
-1. Log in with your work account
-2. Wait until Teams loads fully
-3. **Close the browser window** (important!)
-
-> **NB:** After you log in, Teams sometimes gets stuck on the loading screen showing only the Teams logo.
-> If it stays there for a while, you are usually logged in anyway — just close the browser window and let the export continue.
-> If the export does not proceed, run the script again.
-
-### Step 3: (Optional) Sign in to SharePoint / OneDrive for documents
-
-Many Teams attachments (Word, Excel, PowerPoint, PDF) are stored in SharePoint or OneDrive. To download those too, sign in to SharePoint **in the same browser window** before closing it:
-
-1. While the Teams login window is still open, **open a new tab** (Ctrl+T)
-2. Go to your SharePoint or OneDrive, e.g. `https://<your-company>.sharepoint.com` or `https://<your-company>-my.sharepoint.com`
-3. Sign in if prompted, then **close the browser window**
-
-> **Tip:** To open that SharePoint tab automatically, set a `SHAREPOINT_URL` before running the script. In Command Prompt:
-> ```bat
-> set "SHAREPOINT_URL=https://yourcompany.sharepoint.com"
-> export-windows.bat
-> ```
-
-### Step 4: Wait
-
-The export runs automatically. This can take **10–60 minutes** depending on how many chats you have, then images and documents are downloaded.
-Don't close the command window — it shows progress.
-
-### Step 5: Save the archive
-
-When finished, a **Choose Folder** dialog appears.
-Pick a safe location for your archive folder — for example **OneDrive** or a USB drive. The whole `teams-archive` folder (the page **and** its `images/` and `files/`) is copied there.
-
-The archive then opens automatically in your browser, and Explorer opens with `index.html` selected so you can see exactly where it ended up.
-
-> **Tip:** After saving, drag `teams-archive/index.html` from Explorer onto your browser's bookmarks bar.
-> That way you have one-click access to your chat history from now on.
-> Keep the `images/` and `files/` folders next to `index.html` — moving the page on its own will break the pictures and document links.
+The next sections walk through it for your system.
 
 ---
 
-## macOS
+## ▶️ Windows
 
-### Step 1: Unblock the app (one-time only)
+### Step 1 — Start it
 
-macOS blocks downloaded files by default. Open **Terminal** (search "Terminal" in Spotlight) and run:
+Double-click **`export-windows.bat`**.
+
+> If Windows shows a blue **SmartScreen** box: click **More info** → **Run anyway**. (It's safe — the code is right here in this repository.) No admin rights are needed.
+
+A black command window opens and starts working. **Leave it open the whole time** — it shows progress and is where you'll press Enter later.
+
+### Step 2 — Sign in (the important part)
+
+After a moment, an **Edge browser window opens**. Here's exactly what to do:
+
+1. **Tab 1 — Teams.** If you're not already signed in, sign in with your work account. **Wait until you can see your chats.**
+2. **Tab 2 — SharePoint (for documents).** To get Word/Excel/PowerPoint/PDF files, you must also be signed in to SharePoint in the **same** window:
+   - Open a **new tab** (press **Ctrl+T**).
+   - Type your SharePoint address, e.g. `https://YOURCOMPANY.sharepoint.com`, and press Enter.
+   - Sign in if asked, and wait until the page loads.
+3. **Finish.** Go back to the **black command window** and press **Enter**.
+
+> 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
+
+> ⚠️ **Important:** You finish the sign-in step by pressing **Enter in the command window** — *not* by closing the browser. The browser closes by itself afterwards.
+
+> **If Teams gets stuck on the loading screen** (just the Teams logo for a long time): you're usually signed in anyway. Open the SharePoint tab as above, then press Enter in the command window. If nothing happens afterwards, run the script again.
+
+### Step 3 — Wait
+
+The tool now exports your chats and downloads images and documents automatically. This is the longest part. The command window shows live progress — just let it run.
+
+### Step 4 — Save your archive
+
+When it's done, a **Choose Folder** window appears. Pick a safe place — for example **OneDrive** or a USB drive. The whole `teams-archive` folder (the page **and** its `images/` and `files/`) is copied there.
+
+The archive then opens in your browser automatically, and Explorer highlights `index.html` so you can see exactly where it landed.
+
+> 💡 **Tip:** Drag `teams-archive/index.html` onto your browser's bookmarks bar for one-click access from now on. Always keep `images/` and `files/` next to `index.html` — moving the page on its own breaks the pictures and document links.
+
+---
+
+## 🍎 macOS
+
+### Step 1 — Unblock the folder (one time only)
+
+macOS blocks downloaded files until you say it's OK. Open **Terminal** (search "Terminal" with Spotlight) and paste this, then press Enter:
 
 ```
 xattr -cr ~/Downloads/TeamsExportPortableWithAttachments-main
 ```
 
-> When you download the ZIP from GitHub, the unzipped folder is named `TeamsExportPortableWithAttachments-main`.
-> Adjust the path if you unzipped somewhere else, e.g.
+> That's the folder name you get after unzipping. If you unzipped somewhere else, change the path, e.g.
 > `xattr -cr ~/Desktop/TeamsExportPortableWithAttachments-main`
 
-### Step 2: Run the export
+### Step 2 — Start it
 
 Double-click **`export-mac.command`** (or the **Teams Export** app icon).
 
-If macOS shows a security warning:
-Right-click the file → **Open** → click **Open** in the dialog.
+> If macOS says it "cannot verify the developer": right-click the file → **Open** → **Open**. (You only need to do this once.)
 
-The script automatically downloads Python if needed.
+A Terminal window opens and starts working. **Leave it open the whole time** — it shows progress and is where you'll press Enter later.
 
-### Step 3: Log in to Teams
+### Step 3 — Sign in (the important part)
 
-Same as Windows — log in, wait for Teams to load, close the browser.
+After a moment, an **Edge browser window opens**. Here's exactly what to do:
 
-> **NB:** After you log in, Teams sometimes gets stuck on the loading screen showing only the Teams logo.
-> If it stays there for a while, you are usually logged in anyway — just close the browser window and let the export continue.
-> If the export does not proceed, run the script again.
+1. **Tab 1 — Teams.** If you're not already signed in, sign in with your work account. **Wait until you can see your chats.**
+2. **Tab 2 — SharePoint (for documents).** To get Word/Excel/PowerPoint/PDF files, you must also be signed in to SharePoint in the **same** window:
+   - Open a **new tab** (press **Cmd+T**).
+   - Type your SharePoint address, e.g. `https://YOURCOMPANY.sharepoint.com`, and press Enter.
+   - Sign in if asked, and wait until the page loads.
+3. **Finish.** Go back to the **Terminal window** and press **Enter**.
 
-### Step 4: (Optional) Sign in to SharePoint / OneDrive for documents
+> 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
 
-To download documents stored in SharePoint or OneDrive, sign in **in the same browser window** before closing it:
+> ⚠️ **Important:** You finish the sign-in step by pressing **Enter in the Terminal window** — *not* by closing the browser. The browser closes by itself afterwards.
 
-1. While the Teams login window is still open, **open a new tab** (Cmd+T)
-2. Go to your SharePoint or OneDrive, e.g. `https://<your-company>.sharepoint.com` or `https://<your-company>-my.sharepoint.com`
-3. Sign in if prompted, then **close the browser window**
+> **If Teams gets stuck on the loading screen** (just the Teams logo for a long time): you're usually signed in anyway. Open the SharePoint tab as above, then press Enter in the Terminal. If nothing happens afterwards, run the script again.
 
-> **Tip:** To open that SharePoint tab automatically, run the script from Terminal with `SHAREPOINT_URL` set:
-> ```bash
-> SHAREPOINT_URL="https://yourcompany.sharepoint.com" ./export-mac.command
-> ```
+### Step 4 — Wait
 
-### Step 5: Wait
+The tool now exports your chats and downloads images and documents automatically. This is the longest part. The Terminal shows live progress — just let it run.
 
-The export runs in the Terminal window. Don't close it.
+### Step 5 — Save your archive
 
-### Step 6: Save the archive
+When it's done, a **Choose Folder** window appears. Pick a safe place — for example **OneDrive** or a USB drive. The whole `teams-archive` folder (the page **and** its `images/` and `files/`) is copied there.
 
-When finished, a **Choose Folder** dialog appears.
-Pick a safe location for your archive folder — for example **OneDrive** or a USB drive. The whole `teams-archive` folder (the page **and** its `images/` and `files/`) is copied there.
+The archive then opens in your browser automatically, and Finder reveals `index.html` so you can see exactly where it landed.
 
-The archive then opens automatically in your browser, and Finder reveals `index.html` so you can see exactly where it ended up.
-
-> **Tip:** After saving, drag `teams-archive/index.html` from Finder onto your browser's bookmarks bar.
-> That way you have one-click access to your chat history from now on.
-> Keep the `images/` and `files/` folders next to `index.html` — moving the page on its own will break the pictures and document links.
+> 💡 **Tip:** Drag `teams-archive/index.html` onto your browser's bookmarks bar for one-click access from now on. Always keep `images/` and `files/` next to `index.html` — moving the page on its own breaks the pictures and document links.
 
 ---
 
-## Switching accounts (logging out and back in)
+## ⚡ Power-user shortcut: open the SharePoint tab automatically
 
-The export uses whichever Teams/SharePoint account is signed in during the login step. If you want to export a **different** user's chats — or if the wrong account is signed in — sign out first, then sign back in as the right user:
+If you'd rather not open the SharePoint tab by hand each time, tell the tool your SharePoint address up front and it opens that second tab for you:
 
-1. Run the export script again so the browser window opens.
-2. In that window, sign out of the current account by visiting:
+**Windows** — in Command Prompt, in the unzipped folder:
+```bat
+set "SHAREPOINT_URL=https://YOURCOMPANY.sharepoint.com"
+export-windows.bat
+```
+
+**macOS** — in Terminal, in the unzipped folder:
+```bash
+SHAREPOINT_URL="https://YOURCOMPANY.sharepoint.com" ./export-mac.command
+```
+
+You'll still sign in once in that tab; after that, just press Enter to continue.
+
+---
+
+## Switching accounts (signing in as a different user)
+
+The export uses whoever is signed in during the sign-in step. To export a **different** person's chats, or if the wrong account is signed in:
+
+1. Run the script again so the browser window opens.
+2. In the browser, **sign out** of the current account by going to:
    `https://login.microsoftonline.com/common/oauth2/v2.0/logout`
-3. Then sign back in as the desired user at:
+3. **Sign back in** as the right person:
    - **Teams:** `https://teams.microsoft.com`
-   - **SharePoint / OneDrive (for documents):** `https://<your-company>.sharepoint.com` or `https://<your-company>-my.sharepoint.com`
-4. Wait until each page is fully loaded and signed in, then **close the browser window** to continue.
+   - **SharePoint/OneDrive (for documents):** `https://YOURCOMPANY.sharepoint.com`
+4. Wait until both are fully loaded, then press **Enter** in the command/Terminal window.
 
-> The login session is stored in the local `.profile` folder next to the scripts. To start completely fresh (clear all stored sign-ins), delete that `.profile` folder and run the script again.
-
----
-
-## The archive folder
-
-The generated `teams-archive` folder contains:
-
-- `index.html` — the viewer page
-- `images/` — every picture from your chats, linked inline
-- `files/` — attached documents (Office files, PDFs, etc.) as local links
-- `unrecoverable-attachments.csv` — a list of any attachments that couldn't be downloaded (e.g. another user's private files or expired links)
-
-It:
-
-- Works offline — no internet needed
-- Opens in any browser (Chrome, Edge, Firefox, Safari)
-- Shows chat **images inline** inside the messages
-- Opens attached **documents** locally
-- Search across all chats
-- Filter by **People**, **Groups**, and **Meetings**
-- Sort by name or most recent message
-- Dark mode support (follows your system setting)
-
-> Keep `index.html`, `images/`, and `files/` together. If you want a single file to move around, zip the whole `teams-archive` folder.
+> To wipe everything and start totally fresh, delete the `.profile` folder next to the scripts, then run the script again.
 
 ---
 
-## Re-running the export
+## The archive folder, in detail
 
-You can run the export again at any time. It **skips chats already exported** and **reuses attachments already downloaded**, so subsequent runs are much faster.
+`teams-archive/` contains `index.html`, `images/`, `files/`, and `unrecoverable-attachments.csv`. The page:
 
-> If some SharePoint/OneDrive documents failed the first time (before you signed in to SharePoint), run the export again **after** signing in to SharePoint, adding `--retry-failed` to the mirror step, to retry just those.
+- Works **offline** — no internet needed.
+- Opens in any browser (Chrome, Edge, Firefox, Safari).
+- Shows chat **images inline**, and opens **documents** locally.
+- Lets you **search** across all chats and **filter** by **People**, **Groups**, and **Meetings**.
+- Sorts by name or most recent message, and supports **dark mode** (follows your system).
+
+> Keep `index.html`, `images/`, and `files/` together. To move or share the archive, zip the **whole** `teams-archive` folder.
+
+---
+
+## Running it again later
+
+You can run the export as often as you like. It **skips chats it already exported** and **reuses files it already downloaded**, so later runs are much faster.
+
+> Forgot to sign in to SharePoint the first time, and some documents are listed as unrecoverable? Sign in to SharePoint, then run again — the tool retries the ones that failed.
 
 ---
 
@@ -195,34 +210,34 @@ You can run the export again at any time. It **skips chats already exported** an
 | | Windows | macOS |
 |---|---------|-------|
 | **Browser** | Microsoft Edge | Microsoft Edge |
-| **Python** | Auto-installed if missing | Auto-installed if missing |
-| **Internet** | Required during export | Required during export |
-| **Admin rights** | Not required | Not required |
+| **Python** | Installed automatically | Installed automatically |
+| **Internet** | Needed during export | Needed during export |
+| **Admin rights** | Not needed | Not needed |
 
-> **Important:** Microsoft Edge must be **closed** before starting the export.
+> **Edge must be closed** before you start.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| **Windows SmartScreen warning** | Click "More info" → "Run anyway" |
-| **macOS "cannot verify developer"** | Right-click → Open → Open |
+| Problem | What to do |
+|---------|-----------|
+| **Windows SmartScreen warning** | Click **More info** → **Run anyway** |
+| **macOS "cannot verify developer"** | Right-click the file → **Open** → **Open** |
 | **macOS "Operation not permitted"** | Run `xattr -cr <path-to-folder>` in Terminal |
+| **Nothing happens after I sign in** | Make sure you pressed **Enter in the command/Terminal window**, not just closed the browser |
+| **Teams stuck on the loading logo** | You're usually signed in — sign in to SharePoint in tab 2, then press Enter. If still stuck, run the script again |
+| **Documents show as broken/unrecoverable** | You weren't signed in to SharePoint. Sign in, then run the script again |
 | **Edge not found** | Install Edge from https://microsoft.com/edge |
-| **Export seems stuck** | It's still working — large accounts take a while |
-| **Empty archive** | Make sure you're logged into the correct Teams account in Edge |
-| **Documents show as broken links** | Sign in to SharePoint/OneDrive during login (see the optional step), then re-run with `--retry-failed` |
-| **Wrong account exported** | Sign out via the logout URL above, sign back in as the right user, re-run |
+| **Export seems frozen** | Large accounts just take a while — check the progress line in the window |
+| **Empty archive** | Make sure you signed in to the **correct** Teams account |
 | **"Edge must be closed" error** | Quit Edge completely, then try again |
 
 ---
 
 ## Privacy & Security
 
-- All data stays on your local machine
-- Uses your existing Edge browser session — no separate login or API keys
-- No data is sent to any external server
-- The HTML archive is fully offline — no tracking, no analytics
-- Source code is available for review in this repository
+- All data stays on **your** machine — the archive is fully offline.
+- The tool uses your own Edge sign-in. No separate logins, no API keys, no accounts.
+- Nothing is sent to any external server. No tracking, no analytics.
+- All source code is here in this repository for anyone to review.

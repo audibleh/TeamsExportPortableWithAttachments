@@ -164,11 +164,15 @@ echo [3/6] Setting up Playwright browser...
 echo.
 echo [4/6] Starting export...
 echo.
-echo   A browser window will open with Teams.
-echo   If you are NOT already logged in, log in now.
-echo   TIP: to also download SharePoint/OneDrive files, open a new tab in the
-echo        same window and sign in to your SharePoint, or set SHAREPOINT_URL.
-echo   Close the browser window when ready.
+echo   A browser window (Edge) will open.
+echo.
+echo   1) TAB 1 shows Teams. If you are not signed in, sign in now and
+echo      wait until your chats are visible.
+echo   2) For Word/Excel/PowerPoint/PDF files, open a SECOND tab in the
+echo      SAME window, go to your SharePoint/OneDrive, and sign in there too:
+echo         https://^<your-company^>.sharepoint.com
+echo      (or set SHAREPOINT_URL to open this tab automatically).
+echo   3) When both are signed in, come back to THIS window and press Enter.
 echo.
 
 set "PROFILE_DIR=%~dp0.profile"
