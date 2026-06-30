@@ -17,7 +17,11 @@ from msteams_export.browser.session import DEFAULT_TEAMS_URL
 from msteams_export.bundle_paths import bundle_relative_path_string, resolve_bundle_relative_path
 from msteams_export.export_bundle import resolve_export_root
 from msteams_export.parsing.teams_api import merge_embedded_html_attachments
-from msteams_export.webapp.attachments import AttachmentUnauthorizedError, open_attachment_fetch_session
+from msteams_export.webapp.attachments import (
+    AttachmentTooLargeError,
+    AttachmentUnauthorizedError,
+    open_attachment_fetch_session,
+)
 
 
 DEFAULT_MIN_FREE_BYTES = 30 * 1024 * 1024 * 1024
@@ -32,6 +36,9 @@ class MirrorAttachmentsRequest:
     timeout_ms: int = 30_000
     max_assets: int | None = None
     min_free_bytes: int = DEFAULT_MIN_FREE_BYTES
+    retry_failed: bool = False
+    attachment_spacing_ms: int | None = None
+    retry_limit: int | None = None
     progress: Callable[["AttachmentMirrorProgress"], None] | None = None
     stop_controller: "MirrorStopController | None" = None
 
@@ -209,6 +216,8 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
         profile_path=request.profile_path,
         teams_url=request.teams_url,
         timeout_ms=request.timeout_ms,
+        attachment_spacing_ms=request.attachment_spacing_ms,
+        retry_limit=request.retry_limit,
     ) as fetch_session:
         for record in chat_records:
             if request.max_assets is not None and processed_assets >= request.max_assets:
@@ -236,7 +245,7 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
                 continue
 
             changed = False
-            stats = {"assetCount": _count_candidate_attachments_in_payload(payload), "mirrored": 0, "failed": 0, "unauthorized": 0}
+            stats = {"assetCount": _count_candidate_attachments_in_payload(payload), "mirrored": 0, "failed": 0, "unauthorized": 0, "tooLarge": 0}
             messages = payload.get("messages", [])
             if not isinstance(messages, list):
                 messages = []
@@ -291,7 +300,17 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
 
                     local_path = _optional_str(attachment.get("localPath"))
                     existing_path = _resolve_local_asset_path(bundle_root, local_path) if local_path else None
-                    if existing_path is not None and existing_path.is_file():
+                    existing_content_type = (
+                        _optional_str(attachment.get("localContentType")) or ""
+                    ).split(";", 1)[0].strip().lower()
+                    # A previously saved HTML page is a login/permission/error
+                    # response, not the real file — don't reuse it; re-fetch so a
+                    # better-authenticated session can capture the actual asset.
+                    if (
+                        existing_path is not None
+                        and existing_path.is_file()
+                        and existing_content_type != "text/html"
+                    ):
                         _apply_local_asset_metadata(
                             attachment,
                             relative_path=_bundle_relative_path(bundle_root, existing_path),
@@ -305,6 +324,26 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
                             current_chat_title=_optional_str(record.get("title")) or _optional_str(record.get("id")),
                             current_asset_label=label,
                             current_status="reused",
+                        )
+                        continue
+
+                    existing_status = (_optional_str(attachment.get("localStatus")) or "").strip().lower()
+                    if not request.retry_failed and existing_status in {"failed", "too_large"}:
+                        # A previous pass already recorded this as a permanent
+                        # failure (e.g. expired/404) or an oversized file. Skip the
+                        # network round-trip on resume; re-count the saved status so
+                        # totals stay consistent. Use --retry-failed to force a retry.
+                        if existing_status == "too_large":
+                            stats["tooLarge"] += 1
+                        else:
+                            failed_count += 1
+                            stats["failed"] += 1
+                        emit(
+                            phase="mirroring",
+                            current_chat_title=_optional_str(record.get("title")) or _optional_str(record.get("id")),
+                            current_asset_label=label,
+                            current_status="skipped",
+                            note="Skipped a previously recorded permanent failure (use --retry-failed to retry).",
                         )
                         continue
 
@@ -363,6 +402,18 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
                             current_chat_title=_optional_str(record.get("title")) or _optional_str(record.get("id")),
                             current_asset_label=label,
                             current_status="unauthorized",
+                            note=str(exc),
+                        )
+                    except AttachmentTooLargeError as exc:
+                        attachment["localStatus"] = "too_large"
+                        attachment["localError"] = str(exc)
+                        stats["tooLarge"] += 1
+                        changed = True
+                        emit(
+                            phase="mirroring",
+                            current_chat_title=_optional_str(record.get("title")) or _optional_str(record.get("id")),
+                            current_asset_label=label,
+                            current_status="too_large",
                             note=str(exc),
                         )
                     except Exception as exc:

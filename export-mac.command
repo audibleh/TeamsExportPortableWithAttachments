@@ -161,15 +161,24 @@ echo "[4/6] Starting export..."
 echo ""
 echo "  A browser window will open with Teams."
 echo "  If you are NOT already logged in, log in now."
+echo "  TIP: to also download SharePoint/OneDrive files, open a new tab in the"
+echo "       same window and sign in to your SharePoint, or set SHAREPOINT_URL."
 echo "  Close the browser window when ready."
 echo ""
 
 PROFILE_DIR="$ROOT/.profile"
 EXPORT_DIR="$ROOT/exports"
 
+# Optionally open an extra tab so the same profile captures SharePoint/OneDrive
+# sign-in cookies (needed to mirror SharePoint-hosted Office documents).
+SESSION_EXTRA=()
+if [ -n "${SHAREPOINT_URL:-}" ]; then
+    SESSION_EXTRA=(--also-url "$SHAREPOINT_URL")
+fi
+
 # Open interactive session for login
-python -m msteams_export session-open --browser edge --profile "$PROFILE_DIR" || \
-    python -m msteams_export session-open --browser auto --profile "$PROFILE_DIR"
+python -m msteams_export session-open --browser edge --profile "$PROFILE_DIR" "${SESSION_EXTRA[@]+"${SESSION_EXTRA[@]}"}" || \
+    python -m msteams_export session-open --browser auto --profile "$PROFILE_DIR" "${SESSION_EXTRA[@]+"${SESSION_EXTRA[@]}"}"
 
 echo ""
 echo "  Starting export of all chats."
@@ -200,13 +209,18 @@ fi
 echo ""
 echo "[5/6] Downloading images from chats (for offline viewing)..."
 echo "  This can take a while depending on how many images you have."
+# Optional: override the per-download pause (ms). Lower = faster; raise if throttled.
+MIRROR_EXTRA=()
+if [ -n "${MIRROR_SPACING_MS:-}" ]; then
+    MIRROR_EXTRA=(--spacing-ms "$MIRROR_SPACING_MS")
+fi
 set +e
 python -m msteams_export attachments mirror "$EXPORT_DIR" \
     --browser edge \
-    --profile "$PROFILE_DIR" || \
+    --profile "$PROFILE_DIR" "${MIRROR_EXTRA[@]+"${MIRROR_EXTRA[@]}"}" || \
 python -m msteams_export attachments mirror "$EXPORT_DIR" \
     --browser auto \
-    --profile "$PROFILE_DIR"
+    --profile "$PROFILE_DIR" "${MIRROR_EXTRA[@]+"${MIRROR_EXTRA[@]}"}"
 set -e
 
 # ---- Step 6: Generate HTML archive (folder + images) ----

@@ -166,14 +166,21 @@ echo [4/6] Starting export...
 echo.
 echo   A browser window will open with Teams.
 echo   If you are NOT already logged in, log in now.
+echo   TIP: to also download SharePoint/OneDrive files, open a new tab in the
+echo        same window and sign in to your SharePoint, or set SHAREPOINT_URL.
 echo   Close the browser window when ready.
 echo.
 
 set "PROFILE_DIR=%~dp0.profile"
 set "EXPORT_DIR=%~dp0exports"
 
+:: Optionally open an extra tab so the same profile captures SharePoint/OneDrive
+:: sign-in cookies (needed to mirror SharePoint-hosted Office documents).
+set "SESSION_EXTRA="
+if defined SHAREPOINT_URL set SESSION_EXTRA=--also-url "%SHAREPOINT_URL%"
+
 :: Open interactive session for login
-"%PYTHON%" -m msteams_export session-open --browser edge --profile "%PROFILE_DIR%"
+"%PYTHON%" -m msteams_export session-open --browser edge --profile "%PROFILE_DIR%" %SESSION_EXTRA%
 
 echo.
 echo   Starting export of all chats.
@@ -192,7 +199,10 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo [5/6] Downloading images from chats (for offline viewing)...
 echo   This can take a while depending on how many images you have.
-"%PYTHON%" -m msteams_export attachments mirror "%EXPORT_DIR%" --browser edge --profile "%PROFILE_DIR%"
+:: Optional: override the per-download pause (ms). Lower = faster; raise if throttled.
+set "MIRROR_EXTRA="
+if defined MIRROR_SPACING_MS set MIRROR_EXTRA=--spacing-ms %MIRROR_SPACING_MS%
+"%PYTHON%" -m msteams_export attachments mirror "%EXPORT_DIR%" --browser edge --profile "%PROFILE_DIR%" %MIRROR_EXTRA%
 
 :: ---- Step 6: Generate HTML Archive (folder + images) ----
 echo.

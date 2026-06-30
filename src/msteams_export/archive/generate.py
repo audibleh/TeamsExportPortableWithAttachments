@@ -7,12 +7,14 @@ per-chat search, date filtering, etc. No server needed.
 from __future__ import annotations
 
 import base64
+import csv
 import html
 import json
+import mimetypes
 import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 # Image extensions that browsers can display inline.
 _WEB_IMAGE_EXTS = {"png", "jpg", "jpeg", "webp", "bmp", "svg", "gif"}
@@ -67,9 +69,10 @@ def generate_html_folder(exports_dir: Path, output_dir: Path) -> dict[str, int]:
     """
     all_chats, index_meta = _load_chats(exports_dir, keep_local=True)
     output_dir.mkdir(parents=True, exist_ok=True)
-    stats = _copy_images_and_rewrite(exports_dir, all_chats, output_dir / "images")
+    stats = _copy_assets_and_rewrite(exports_dir, all_chats, output_dir)
     html_content = _build_html(all_chats, index_meta)
     (output_dir / "index.html").write_text(html_content, encoding="utf-8")
+    stats["unrecoverable"] = _write_unrecoverable_log(exports_dir, output_dir)
     return stats
 
 
@@ -196,43 +199,137 @@ def _is_web_image(path: str) -> bool:
     return ext in _WEB_IMAGE_EXTS
 
 
-def _copy_images_and_rewrite(
+def _is_image_attachment(path: str, content_type: str) -> bool:
+    """True if the attachment is an image, by content-type or file extension."""
+    if content_type.startswith("image/"):
+        return True
+    return _is_web_image(path)
+
+
+def _copy_assets_and_rewrite(
     exports_dir: Path,
     chats: list[dict[str, Any]],
-    images_dir: Path,
+    output_dir: Path,
 ) -> dict[str, int]:
-    """Copy mirrored image attachments into images_dir and rewrite localPath.
+    """Copy mirrored attachments into output_dir and rewrite localPath.
 
-    Image attachments get a relative ``images/...`` URL so the HTML displays them
-    inline. Non-image or missing attachments lose their localPath and fall back
-    to the original external link.
+    Images are copied into ``output_dir/images/`` and shown inline; every other
+    downloaded file (PDF, Office document, archive, ...) is copied into
+    ``output_dir/files/`` and shown as a local download link. Saved HTML/plain
+    login or error pages and missing files are dropped so they fall back to the
+    original link. Nothing here reaches out to the network.
     """
-    copied = 0
+    images_dir = output_dir / "images"
+    files_dir = output_dir / "files"
+    images = 0
+    files = 0
     missing = 0
+    skipped = 0
     for chat in chats:
         for msg in chat["messages"]:
             for att in msg.get("attachments", []):
                 local_path = att.get("localPath")
                 if not local_path:
                     continue
-                if not _is_web_image(local_path):
+                content_type = (att.get("localContentType") or "").split(";", 1)[0].strip().lower()
+                # Saved HTML pages are login or error responses, not real
+                # attachments — drop them so they don't render as broken files.
+                if content_type == "text/html":
                     att.pop("localPath", None)
+                    att.pop("localContentType", None)
+                    skipped += 1
                     continue
                 source = _resolve_bundle_relative_path(exports_dir, local_path)
                 if source is None or not source.is_file():
                     att.pop("localPath", None)
+                    att.pop("localContentType", None)
                     missing += 1
                     continue
+                is_image = _is_image_attachment(local_path, content_type)
                 rel = local_path[len("assets/"):] if local_path.startswith("assets/") else local_path
-                dest = images_dir / rel
+                # Give extension-less images a correct suffix so the browser and
+                # local server serve them with an image content-type.
+                if is_image and not _is_web_image(rel) and content_type:
+                    guessed = mimetypes.guess_extension(content_type)
+                    if guessed:
+                        rel = rel + guessed
+                folder = "images" if is_image else "files"
+                dest = (images_dir if is_image else files_dir) / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if not dest.exists():
                     shutil.copy2(source, dest)
-                copied += 1
+                if is_image:
+                    images += 1
+                else:
+                    files += 1
                 # The on-disk segments contain literal percent-encodings, so
                 # re-encode for use as a URL inside the HTML.
-                att["localPath"] = "images/" + quote(rel, safe="/._-")
-    return {"copied": copied, "missing": missing}
+                att["localPath"] = folder + "/" + quote(rel, safe="/._-")
+                att["localKind"] = "image" if is_image else "file"
+                att.pop("localContentType", None)
+    return {"images": images, "files": files, "missing": missing, "skipped": skipped}
+
+
+def _write_unrecoverable_log(exports_dir: Path, output_dir: Path) -> int:
+    """Write a CSV of attachments that could not be stored locally.
+
+    These remain external links in the archive (the original Teams/SharePoint/
+    Skype URL) and will likely stop working after migration. The log lets the
+    operator see exactly which files are affected and why. Reads the raw bundle
+    so it can report each attachment's mirror status and error.
+    """
+    index_path = exports_dir / "index.json"
+    try:
+        index_data = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    conversations = index_data.get("conversations", []) if isinstance(index_data, dict) else []
+    rows: list[tuple[str, str, str, str, str, str, str]] = []
+    for conv in conversations:
+        if not isinstance(conv, dict):
+            continue
+        title = str(conv.get("title") or conv.get("id") or "(unknown chat)")
+        export_path = conv.get("exportPath")
+        chat_file = _resolve_bundle_relative_path(exports_dir, export_path) if export_path else None
+        if chat_file is None or not chat_file.is_file():
+            continue
+        try:
+            payload = json.loads(chat_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for msg in payload.get("messages", []) or []:
+            if not isinstance(msg, dict):
+                continue
+            timestamp = str(msg.get("timestamp", ""))
+            for att in msg.get("attachments", []) or []:
+                if not isinstance(att, dict):
+                    continue
+                status = att.get("localStatus")
+                content_type = (att.get("localContentType") or "").split(";", 1)[0].strip().lower()
+                if status == "mirrored" and content_type != "text/html":
+                    continue
+                reason = status or "not-downloaded"
+                if status == "mirrored" and content_type == "text/html":
+                    reason = "login-or-error-page"
+                href = str(att.get("href") or "")
+                host = (urlparse(href).hostname or "") if href else ""
+                rows.append(
+                    (
+                        title,
+                        timestamp,
+                        str(att.get("label") or ""),
+                        str(att.get("kind") or ""),
+                        host,
+                        reason,
+                        href,
+                    )
+                )
+    log_path = output_dir / "unrecoverable-attachments.csv"
+    with log_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["chat", "timestamp", "label", "kind", "host", "reason", "url"])
+        writer.writerows(rows)
+    return len(rows)
 
 
 def _clean_messages(messages: list[dict[str, Any]], *, keep_local: bool = False) -> list[dict[str, Any]]:
@@ -258,6 +355,8 @@ def _clean_messages(messages: list[dict[str, Any]], *, keep_local: bool = False)
                 item = {"label": a.get("label", ""), "href": a.get("href", ""), "kind": a.get("kind", "")}
                 if keep_local and a.get("localPath") and a.get("localStatus") == "mirrored":
                     item["localPath"] = a.get("localPath")
+                    if a.get("localContentType"):
+                        item["localContentType"] = a.get("localContentType")
                 attachments.append(item)
             entry["attachments"] = attachments
         if msg.get("replyTo") and isinstance(msg["replyTo"], dict):
@@ -1044,7 +1143,10 @@ function renderMessages(scrollToMsgIdx) {
           const label = escapeHtml(a.label || a.href || 'attachment');
           if (a.localPath) {
             const src = escapeHtml(a.localPath);
-            return `<a class="msg-image-link" href="${src}" target="_blank" rel="noopener"><img class="msg-image" src="${src}" alt="${label}" loading="lazy"></a>`;
+            if (a.localKind === 'image') {
+              return `<a class="msg-image-link" href="${src}" target="_blank" rel="noopener"><img class="msg-image" src="${src}" alt="${label}" loading="lazy"></a>`;
+            }
+            return `<a class="msg-file-link" href="${src}" target="_blank" rel="noopener" download="${label}">${label}</a>`;
           }
           if (a.href) return `<a href="${escapeHtml(a.href)}" target="_blank" rel="noopener">${label}</a>`;
           return `<span>${label}</span>`;
@@ -1271,4 +1373,9 @@ if __name__ == "__main__":
         else exports.parent / "teams-archive"
     )
     stats = generate_html_folder(exports, output)
-    print(f"Archive folder written to {output} (images copied: {stats['copied']})")
+    print(
+        f"Archive folder written to {output} "
+        f"(images: {stats['images']}, files: {stats['files']}, "
+        f"skipped: {stats['skipped']}, missing: {stats['missing']}, "
+        f"unrecoverable: {stats['unrecoverable']})"
+    )

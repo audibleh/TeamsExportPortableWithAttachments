@@ -1,1 +1,1 @@
-MS Teams Exporter/Viewer 0.3.0 (with images)
+MS Teams Exporter/Viewer 0.4.0 (with attachments)

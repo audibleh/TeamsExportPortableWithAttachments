@@ -113,6 +113,7 @@ def open_session(
     browser_name: str = "auto",
     profile_path: Path | None = None,
     teams_url: str = DEFAULT_TEAMS_URL,
+    extra_urls: list[str] | None = None,
 ) -> SessionOpenResult:
     installs = discover_browsers()
     selected = choose_browser(browser_name, installs)
@@ -131,6 +132,7 @@ def open_session(
             browser=selected,
             profile_path=profile,
             teams_url=teams_url,
+            extra_urls=extra_urls,
         )
     except Exception as exc:
         return SessionOpenResult(
@@ -237,6 +239,7 @@ def _run_interactive_session(
     browser: BrowserInstall,
     profile_path: Path,
     teams_url: str,
+    extra_urls: list[str] | None = None,
 ) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -255,6 +258,15 @@ def _run_interactive_session(
             page.goto(teams_url, wait_until="domcontentloaded", timeout=30_000)
             print("Teams browser session is open.")
             print("Use the browser window to sign in if needed.")
+            for extra_url in extra_urls or []:
+                if not extra_url:
+                    continue
+                try:
+                    extra_page = context.new_page()
+                    extra_page.goto(extra_url, wait_until="domcontentloaded", timeout=30_000)
+                    print(f"Opened extra tab for sign-in: {extra_url}")
+                except Exception as exc:
+                    print(f"Could not open extra tab {extra_url}: {exc}")
             print("When you are done, return here and press Enter to close the session.")
             try:
                 input()

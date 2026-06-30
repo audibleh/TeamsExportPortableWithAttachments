@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http import HTTPStatus
 import mimetypes
 from pathlib import Path
@@ -31,6 +31,14 @@ class AttachmentUnauthorizedError(RuntimeError):
     pass
 
 
+class AttachmentTooLargeError(RuntimeError):
+    pass
+
+
+# Attachments larger than this are skipped rather than mirrored.
+MAX_ATTACHMENT_BYTES = 250 * 1024 * 1024
+
+
 @dataclass(slots=True)
 class AttachmentDownload:
     body: bytes
@@ -46,6 +54,7 @@ class AttachmentFetchSession:
     browser_context: Any
     timeout_ms: int
     polite_mode: PoliteModePolicy
+    fallback_timeout_ms: int = 10_000
     last_request_at: float | None = None
 
     def fetch(self, *, url: str, label: str | None = None) -> AttachmentDownload:
@@ -56,6 +65,7 @@ class AttachmentFetchSession:
             label=label,
             timeout_ms=self.timeout_ms,
             polite_mode=self.polite_mode,
+            fallback_timeout_ms=self.fallback_timeout_ms,
             last_request_at=self.last_request_at,
         )
         self.last_request_at = time.monotonic()
@@ -122,6 +132,9 @@ def open_attachment_fetch_session(
     profile_path: Path | None = None,
     teams_url: str = DEFAULT_TEAMS_URL,
     timeout_ms: int = 30_000,
+    attachment_spacing_ms: int | None = None,
+    retry_limit: int | None = None,
+    fallback_timeout_ms: int | None = None,
 ) -> Iterator[AttachmentFetchSession]:
     target = resolve_browser_target(
         TeamsBrowserRequest(
@@ -131,6 +144,23 @@ def open_attachment_fetch_session(
             headless=True,
             timeout_ms=timeout_ms,
         )
+    )
+
+    polite_mode = DEFAULT_POLITE_MODE
+    overrides: dict[str, int] = {}
+    if attachment_spacing_ms is not None:
+        overrides["attachment_spacing_ms"] = max(0, int(attachment_spacing_ms))
+    if retry_limit is not None:
+        overrides["retry_limit"] = max(0, int(retry_limit))
+    if overrides:
+        polite_mode = replace(DEFAULT_POLITE_MODE, **overrides)
+
+    # Dead/blocked Skype/SharePoint links should fail fast in the browser
+    # fallback rather than stall on the full navigation timeout.
+    resolved_fallback_timeout = (
+        max(1_000, int(fallback_timeout_ms))
+        if fallback_timeout_ms is not None
+        else min(target.timeout_ms, 10_000)
     )
 
     from playwright.sync_api import sync_playwright
@@ -159,7 +189,8 @@ def open_attachment_fetch_session(
                     request_context=request_context,
                     browser_context=browser_context,
                     timeout_ms=target.timeout_ms,
-                    polite_mode=DEFAULT_POLITE_MODE,
+                    polite_mode=polite_mode,
+                    fallback_timeout_ms=resolved_fallback_timeout,
                 )
             finally:
                 request_context.dispose()
@@ -207,6 +238,7 @@ def _fetch_with_request_context(
     label: str | None,
     timeout_ms: int,
     polite_mode: PoliteModePolicy,
+    fallback_timeout_ms: int,
     last_request_at: float | None,
 ) -> AttachmentDownload:
     errors: list[str] = []
@@ -221,14 +253,18 @@ def _fetch_with_request_context(
             )
             last_request_at = time.monotonic()
             headers = {str(key).lower(): str(value) for key, value in response.headers.items()}
+            _raise_if_too_large(headers.get("content-length"), candidate_url)
             body = response.body()
             content_type = _resolve_content_type(headers.get("content-type"), label, candidate_url)
-            if response.status == HTTPStatus.UNAUTHORIZED and _is_asm_storage_url(candidate_url):
+            if (
+                response.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN)
+                and _should_try_browser_fetch(candidate_url)
+            ):
                 browser_result = _fetch_with_browser_page(
                     browser_context,
                     url=candidate_url,
                     label=label,
-                    timeout_ms=timeout_ms,
+                    timeout_ms=fallback_timeout_ms,
                 )
                 if browser_result is not None:
                     return browser_result
@@ -257,6 +293,18 @@ def _fetch_with_request_context(
                 errors.append(f"{candidate_url} => header-dump response")
                 break
             if _looks_like_html_error_page(body, content_type):
+                # A SharePoint/OneDrive login or redirect page came back over the
+                # bare request context. Retry through an authenticated browser
+                # page, which can complete the SSO redirect and download the file.
+                if _should_try_browser_fetch(candidate_url):
+                    browser_result = _fetch_with_browser_page(
+                        browser_context,
+                        url=candidate_url,
+                        label=label,
+                        timeout_ms=fallback_timeout_ms,
+                    )
+                    if browser_result is not None:
+                        return browser_result
                 errors.append(f"{candidate_url} => HTML error page")
                 break
             filename = _resolve_filename(
@@ -289,13 +337,14 @@ def _fetch_with_browser_page(
     created_page = not bool(browser_context.pages)
     page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
     try:
+        page.set_default_timeout(timeout_ms)
         fetch_result = _fetch_with_page_context_fetch(page, url=url, label=label, timeout_ms=timeout_ms)
         if fetch_result is not None:
             return fetch_result
         try:
             response = page.goto(url, wait_until="commit", timeout=timeout_ms)
         except Exception as exc:
-            if _is_asm_storage_url(url) and "ERR_HTTP_RESPONSE_CODE_FAILURE" in str(exc):
+            if _is_hosted_media_url(url) and "ERR_HTTP_RESPONSE_CODE_FAILURE" in str(exc):
                 raise AttachmentUnauthorizedError(
                     "Attachment access was blocked during browser fetch. "
                     "The current Teams session likely does not have permission to open this media object. "
@@ -336,9 +385,32 @@ def _fetch_with_browser_page(
             page.close()
 
 
-def _is_asm_storage_url(url: str) -> bool:
+def _is_hosted_media_url(url: str) -> bool:
+    """True for Teams/Skype hosted-content media hosts that need session auth.
+
+    Covers Skype ASM storage (``*.asm.skype.com``) and the Teams async gateway
+    (``*.asyncgw.teams.microsoft.com``). On HTTP 401 these are retried through an
+    authenticated browser page rather than the bare request context.
+    """
     host = (urlparse(url).hostname or "").lower()
-    return host == "asm.skype.com" or host.endswith(".asm.skype.com")
+    if host == "asm.skype.com" or host.endswith(".asm.skype.com"):
+        return True
+    if host == "asyncgw.teams.microsoft.com" or host.endswith(".asyncgw.teams.microsoft.com"):
+        return True
+    return False
+
+
+def _should_try_browser_fetch(url: str) -> bool:
+    """Hosts where a failed bare request should be retried via a browser page.
+
+    Covers Teams/Skype hosted media (which need session auth) plus
+    SharePoint/OneDrive (whose SSO redirect and download flows a plain request
+    context cannot follow, but an authenticated browser page can).
+    """
+    if _is_hosted_media_url(url):
+        return True
+    host = (urlparse(url).hostname or "").lower()
+    return _is_download_hint_host(host)
 
 
 def _fetch_with_page_context_fetch(
@@ -350,11 +422,15 @@ def _fetch_with_page_context_fetch(
 ) -> AttachmentDownload | None:
     try:
         result = page.evaluate(
-            """async ({ url }) => {
+            """async ({ url, timeoutMs }) => {
                 try {
+                    const signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
+                        ? AbortSignal.timeout(timeoutMs)
+                        : undefined;
                     const response = await fetch(url, {
                         credentials: 'include',
                         headers: { Accept: '*/*' },
+                        signal,
                     });
                     const headers = {};
                     for (const [key, value] of response.headers.entries()) {
@@ -389,7 +465,7 @@ def _fetch_with_page_context_fetch(
                     };
                 }
             }""",
-            {"url": url},
+            {"url": url, "timeoutMs": timeout_ms},
         )
     except Exception:
         return None
@@ -431,6 +507,30 @@ def _fetch_with_page_context_fetch(
     )
 
 
+def _raise_if_too_large(content_length: str | None, url: str) -> None:
+    """Skip oversized attachments based on the server's Content-Length."""
+    if content_length and content_length.strip().isdigit():
+        size = int(content_length.strip())
+        if size > MAX_ATTACHMENT_BYTES:
+            raise AttachmentTooLargeError(
+                f"Attachment is {size} bytes, over the {MAX_ATTACHMENT_BYTES} byte limit. Skipped: {url}"
+            )
+
+
+def _ensure_extension(name: str, content_type: str) -> str:
+    """Append an extension from the content-type when ``name`` has none.
+
+    Many Teams/Skype media URLs and labels carry no file extension (e.g. a path
+    ending in ``/views/imgo``); the content-type (``image/png`` etc.) supplies
+    the correct suffix so the file can be served and displayed.
+    """
+    if "." in Path(name).name:
+        return name
+    cleaned = (content_type or "").split(";", 1)[0].strip()
+    ext = mimetypes.guess_extension(cleaned) if cleaned else None
+    return name + ext if ext else name
+
+
 def _resolve_filename(
     *,
     label: str | None,
@@ -444,12 +544,12 @@ def _resolve_filename(
 
     cleaned_label = (label or "").strip()
     if cleaned_label:
-        return cleaned_label
+        return _ensure_extension(cleaned_label, content_type)
 
     parsed = urlparse(url)
     path_name = Path(unquote(parsed.path)).name
     if path_name:
-        return path_name
+        return _ensure_extension(path_name, content_type)
 
     guessed_ext = mimetypes.guess_extension(content_type.split(";", 1)[0].strip()) or ""
     return f"attachment{guessed_ext}"
@@ -485,7 +585,12 @@ def _looks_like_http_header_dump(body: bytes) -> bool:
 
 def _looks_like_html_error_page(body: bytes, content_type: str) -> bool:
     normalized = (content_type or "").split(";", 1)[0].strip().lower()
-    if normalized not in {"text/html", "text/plain"}:
-        return False
-    sample = body[:4000].decode("utf-8", errors="ignore").lower()
-    return "file not found" in sample or "sorry, something went wrong" in sample
+    if normalized == "text/html":
+        # A real file/image attachment is never served as HTML. An HTML body is
+        # a login, permission, preview or error page — never the attachment
+        # itself — so reject it and let the fetch fail (and be retried later).
+        return True
+    if normalized == "text/plain":
+        sample = body[:4000].decode("utf-8", errors="ignore").lower()
+        return "file not found" in sample or "sorry, something went wrong" in sample
+    return False

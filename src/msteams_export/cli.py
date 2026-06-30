@@ -70,6 +70,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     session_open_parser.add_argument("--profile", type=Path, help="Path to a persistent browser profile.")
     session_open_parser.add_argument("--url", type=str, default=DEFAULT_TEAMS_URL, help="Teams URL to open.")
+    session_open_parser.add_argument(
+        "--also-url",
+        action="append",
+        default=[],
+        metavar="URL",
+        help="Open an extra tab (repeatable), e.g. your SharePoint/OneDrive root, "
+        "so the same profile also captures those sign-in cookies for attachment downloads.",
+    )
     session_open_parser.set_defaults(func=_cmd_session_open)
 
     export_parser = subparsers.add_parser("export", help="Planned export commands.")
@@ -242,6 +250,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=30.0,
         help="Stop mirroring before the disk gets too full. Default keeps at least 30 GB free.",
     )
+    attachments_mirror.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help="Also re-attempt attachments previously recorded as failed or too-large. "
+        "By default a resume skips those to avoid re-walking permanent failures.",
+    )
+    attachments_mirror.add_argument(
+        "--spacing-ms",
+        type=int,
+        default=400,
+        help="Pause between attachment downloads, in milliseconds (default 400). "
+        "Lower is faster; raise it if Teams/SharePoint starts throttling (HTTP 429).",
+    )
+    attachments_mirror.add_argument(
+        "--retry-limit",
+        type=int,
+        help="Maximum retries for throttled (429/503) downloads before giving up. "
+        "Lower it to spend less time on stuck items (default uses the polite-mode value).",
+    )
     attachments_mirror.set_defaults(func=_cmd_attachments)
 
     serve_parser = subparsers.add_parser(
@@ -346,6 +373,7 @@ def _cmd_session_open(args: argparse.Namespace) -> int:
         browser_name=args.browser,
         profile_path=args.profile,
         teams_url=args.url,
+        extra_urls=args.also_url,
     )
     print(result.message)
     if result.browser_name:
@@ -521,6 +549,9 @@ def _cmd_attachments(args: argparse.Namespace) -> int:
                 timeout_ms=max(1_000, args.timeout_ms),
                 max_assets=args.max_assets,
                 min_free_bytes=max(0, int(args.min_free_gb * 1024 * 1024 * 1024)),
+                retry_failed=args.retry_failed,
+                attachment_spacing_ms=max(0, args.spacing_ms),
+                retry_limit=args.retry_limit,
                 progress=progress_renderer,
                 stop_controller=stop_controller,
             )
