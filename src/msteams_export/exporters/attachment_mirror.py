@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -25,6 +26,22 @@ from msteams_export.webapp.attachments import (
 
 
 DEFAULT_MIN_FREE_BYTES = 30 * 1024 * 1024 * 1024
+
+
+def _fs_path(path: Path) -> str:
+    """Return a filesystem path string that survives the Windows MAX_PATH limit.
+
+    Teams chat-id folder names are very long, so mirrored asset paths can exceed
+    Windows' 260-character limit and fail with ``WinError 3``. Prefixing an
+    absolute path with the extended-length ``\\\\?\\`` marker lifts that limit.
+    On non-Windows platforms the path is returned unchanged.
+    """
+    raw = os.fspath(path)
+    if os.name == "nt":
+        raw = os.path.abspath(raw)
+        if not raw.startswith("\\\\?\\"):
+            raw = "\\\\?\\" + raw
+    return raw
 
 
 @dataclass(slots=True)
@@ -372,8 +389,9 @@ def mirror_bundle_attachments(request: MirrorAttachmentsRequest) -> MirrorAttach
                             href=href,
                         )
                         output_path = bundle_root / relative_path
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
-                        output_path.write_bytes(downloaded.body)
+                        os.makedirs(_fs_path(output_path.parent), exist_ok=True)
+                        with open(_fs_path(output_path), "wb") as fh:
+                            fh.write(downloaded.body)
                         _apply_local_asset_metadata(
                             attachment,
                             relative_path=relative_path.as_posix(),

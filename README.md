@@ -231,6 +231,7 @@ You can run the export as often as you like. It **skips chats it already exporte
 | **Edge not found** | Install Edge from https://microsoft.com/edge |
 | **Export seems frozen** | Large accounts just take a while — check the progress line in the window |
 | **Empty archive** | Make sure you signed in to the **correct** Teams account |
+| **Windows `[WinError 3]` / "cannot find the path"** | Windows limits paths to 260 characters. Unzip to a **short** location such as `C:\TE` (not a deep, double-nested Downloads folder), then run again |
 | **"Edge must be closed" error** | Quit Edge completely, then try again |
 
 ---

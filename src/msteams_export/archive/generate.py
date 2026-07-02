@@ -11,6 +11,7 @@ import csv
 import html
 import json
 import mimetypes
+import os
 import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -18,6 +19,22 @@ from urllib.parse import quote, urlparse
 
 # Image extensions that browsers can display inline.
 _WEB_IMAGE_EXTS = {"png", "jpg", "jpeg", "webp", "bmp", "svg", "gif"}
+
+
+def _fs_path(path: Path) -> str:
+    """Return a filesystem path string that survives the Windows MAX_PATH limit.
+
+    Teams chat-id folder names are very long, so the copied archive paths easily
+    exceed Windows' 260-character limit and fail with ``WinError 3``. Prefixing
+    an absolute path with the extended-length ``\\\\?\\`` marker lifts that limit.
+    On non-Windows platforms the path is returned unchanged.
+    """
+    raw = os.fspath(path)
+    if os.name == "nt":
+        raw = os.path.abspath(raw)
+        if not raw.startswith("\\\\?\\"):
+            raw = "\\\\?\\" + raw
+    return raw
 
 
 def _resolve_bundle_relative_path(bundle_root: Path, value: str | None) -> Path | None:
@@ -240,7 +257,7 @@ def _copy_assets_and_rewrite(
                     skipped += 1
                     continue
                 source = _resolve_bundle_relative_path(exports_dir, local_path)
-                if source is None or not source.is_file():
+                if source is None or not os.path.isfile(_fs_path(source)):
                     att.pop("localPath", None)
                     att.pop("localContentType", None)
                     missing += 1
@@ -255,9 +272,9 @@ def _copy_assets_and_rewrite(
                         rel = rel + guessed
                 folder = "images" if is_image else "files"
                 dest = (images_dir if is_image else files_dir) / rel
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                if not dest.exists():
-                    shutil.copy2(source, dest)
+                os.makedirs(_fs_path(dest.parent), exist_ok=True)
+                if not os.path.exists(_fs_path(dest)):
+                    shutil.copy2(_fs_path(source), _fs_path(dest))
                 if is_image:
                     images += 1
                 else:
