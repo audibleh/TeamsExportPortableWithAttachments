@@ -78,6 +78,8 @@ After a moment, an **Edge browser window opens**. Here's exactly what to do:
 
 > 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
 
+> ⚠️ **Check you're the right person in SharePoint.** SharePoint often signs you in automatically with the *wrong* account (a personal or old work account it remembered). If the SharePoint tab shows the wrong name, or you get **"You don't have access to this right now"**, click your profile picture (top-right) or the **9-dots menu (top-left)** → **SharePoint**, sign out, and sign back in with the **same work account you used for Teams**. It must be the exact same account in both tabs.
+
 > ⚠️ **Important:** You finish the sign-in step by pressing **Enter in the command window** — *not* by closing the browser. The browser closes by itself afterwards.
 
 > **If Teams gets stuck on the loading screen** (just the Teams logo for a long time): you're usually signed in anyway. Open the SharePoint tab as above, then press Enter in the command window. If nothing happens afterwards, run the script again.
@@ -129,6 +131,8 @@ After a moment, an **Edge browser window opens**. Here's exactly what to do:
 3. **Finish.** Go back to the **Terminal window** and press **Enter**.
 
 > 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
+
+> ⚠️ **Check you're the right person in SharePoint.** SharePoint often signs you in automatically with the *wrong* account (a personal or old work account it remembered). If the SharePoint tab shows the wrong name, or you get **"You don't have access to this right now"**, click your profile picture (top-right) or the **9-dots menu (top-left)** → **SharePoint**, sign out, and sign back in with the **same work account you used for Teams**. It must be the exact same account in both tabs.
 
 > ⚠️ **Important:** You finish the sign-in step by pressing **Enter in the Terminal window** — *not* by closing the browser. The browser closes by itself afterwards.
 
@@ -228,6 +232,7 @@ You can run the export as often as you like. It **skips chats it already exporte
 | **Nothing happens after I sign in** | Make sure you pressed **Enter in the command/Terminal window**, not just closed the browser |
 | **Teams stuck on the loading logo** | You're usually signed in — sign in to SharePoint in tab 2, then press Enter. If still stuck, run the script again |
 | **Documents show as broken/unrecoverable** | You weren't signed in to SharePoint. Sign in, then run the script again |
+| **SharePoint says "You don't have access to this right now"** | SharePoint likely signed you in with the **wrong** account. In the SharePoint tab, click your profile picture (top-right) → sign out, and sign back in with the **same** work account you use for Teams. If it still says you don't meet the requirements, your organisation blocks non-managed browsers (Conditional Access) — only the chats/images can be exported, not SharePoint files |
 | **Edge not found** | Install Edge from https://microsoft.com/edge |
 | **Export seems frozen** | Large accounts just take a while — check the progress line in the window |
 | **Empty archive** | Make sure you signed in to the **correct** Teams account |
