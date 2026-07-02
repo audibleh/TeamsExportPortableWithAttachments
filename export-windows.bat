@@ -164,24 +164,28 @@ echo [3/6] Setting up Playwright browser...
 echo.
 echo [4/6] Starting export...
 echo.
-echo   A browser window (Edge) will open.
+echo   A browser window (Edge) will open with TWO tabs.
 echo.
-echo   1) TAB 1 shows Teams. If you are not signed in, sign in now and
-echo      wait until your chats are visible.
-echo   2) For Word/Excel/PowerPoint/PDF files, open a SECOND tab in the
-echo      SAME window, go to your SharePoint/OneDrive, and sign in there too:
-echo         https://^<your-company^>.sharepoint.com
-echo      (or set SHAREPOINT_URL to open this tab automatically).
-echo   3) When both are signed in, come back to THIS window and press Enter.
+echo   1) TAB 1 is Teams. Check it is signed in as the EXACT person whose
+echo      chats you want to export. Edge often signs in as the WRONG
+echo      account automatically - if so, sign out and sign back in.
+echo   2) TAB 2 (Office) opens by itself. Check it too is signed in as the
+echo      SAME, correct account. If it is wrong, sign out and sign back in.
+echo   3) Both tabs MUST be the same, correct account - otherwise you get
+echo      the wrong person's data, or no documents at all.
+echo   4) When both tabs are correct, come back to THIS window and press Enter.
 echo.
 
 set "PROFILE_DIR=%~dp0.profile"
 set "EXPORT_DIR=%~dp0exports"
 
-:: Optionally open an extra tab so the same profile captures SharePoint/OneDrive
-:: sign-in cookies (needed to mirror SharePoint-hosted Office documents).
-set "SESSION_EXTRA="
-if defined SHAREPOINT_URL set SESSION_EXTRA=--also-url "%SHAREPOINT_URL%"
+:: Open a second tab so the same profile captures the Microsoft 365 sign-in
+:: cookies needed to mirror SharePoint/OneDrive-hosted Office documents.
+:: Defaults to the universal Office URL (works for any tenant, no company
+:: address required); override with SHAREPOINT_URL for a specific tenant.
+set "OFFICE_URL=https://powerpoint.cloud.microsoft/"
+if defined SHAREPOINT_URL set "OFFICE_URL=%SHAREPOINT_URL%"
+set SESSION_EXTRA=--also-url "%OFFICE_URL%"
 
 :: Open interactive session for login
 "%PYTHON%" -m msteams_export session-open --browser edge --profile "%PROFILE_DIR%" %SESSION_EXTRA%

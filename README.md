@@ -24,9 +24,8 @@ A folder called **`teams-archive`** containing:
 You'll get the best result if you have these ready:
 
 1. **Close Microsoft Edge completely.** The tool needs Edge to itself.
-2. **Know your Teams sign-in** (your work account).
-3. **Know your SharePoint/OneDrive address** if you want documents too — it usually looks like
-   `https://YOURCOMPANY.sharepoint.com` (replace `YOURCOMPANY` with your organisation's name).
+2. **Know which account** you want to export (your work account). Edge often signs in with the *wrong* account automatically, so you'll need to double-check.
+3. **You do _not_ need your SharePoint address.** For documents, the tool opens a second tab at `https://powerpoint.cloud.microsoft/` automatically — this works for any organisation.
 
 > ⏱️ The whole process takes anywhere from a few minutes to about an hour, depending on how many chats you have. You can leave it running.
 
@@ -69,12 +68,10 @@ A black command window opens and starts working. **Leave it open the whole time*
 
 After a moment, an **Edge browser window opens**. Here's exactly what to do:
 
-1. **Tab 1 — Teams.** If you're not already signed in, sign in with your work account. **Wait until you can see your chats.**
-2. **Tab 2 — SharePoint (for documents).** To get Word/Excel/PowerPoint/PDF files, you must also be signed in to SharePoint in the **same** window:
-   - Open a **new tab** (press **Ctrl+T**).
-   - Type your SharePoint address, e.g. `https://YOURCOMPANY.sharepoint.com`, and press Enter.
-   - Sign in if asked, and wait until the page loads.
-3. **Finish.** Go back to the **black command window** and press **Enter**.
+1. **Tab 1 — Teams.** Check it's signed in as the **exact** account whose chats you want to export. Edge often picks the **wrong** account automatically — if so, sign out and sign back in with the right one. **Wait until you can see your chats.**
+2. **Tab 2 — Office (for documents).** A second tab opens by itself at `https://powerpoint.cloud.microsoft/`. Check it too is signed in as the **same** account. If it's wrong, sign out and sign back in.
+3. **Same account in both tabs!** They must match — otherwise you get the wrong person's data, or no documents at all.
+4. **Finish.** Go back to the **black command window** and press **Enter**.
 
 > 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
 
@@ -123,12 +120,10 @@ A Terminal window opens and starts working. **Leave it open the whole time** —
 
 After a moment, an **Edge browser window opens**. Here's exactly what to do:
 
-1. **Tab 1 — Teams.** If you're not already signed in, sign in with your work account. **Wait until you can see your chats.**
-2. **Tab 2 — SharePoint (for documents).** To get Word/Excel/PowerPoint/PDF files, you must also be signed in to SharePoint in the **same** window:
-   - Open a **new tab** (press **Cmd+T**).
-   - Type your SharePoint address, e.g. `https://YOURCOMPANY.sharepoint.com`, and press Enter.
-   - Sign in if asked, and wait until the page loads.
-3. **Finish.** Go back to the **Terminal window** and press **Enter**.
+1. **Tab 1 — Teams.** Check it's signed in as the **exact** account whose chats you want to export. Edge often picks the **wrong** account automatically — if so, sign out and sign back in with the right one. **Wait until you can see your chats.**
+2. **Tab 2 — Office (for documents).** A second tab opens by itself at `https://powerpoint.cloud.microsoft/`. Check it too is signed in as the **same** account. If it's wrong, sign out and sign back in.
+3. **Same account in both tabs!** They must match — otherwise you get the wrong person's data, or no documents at all.
+4. **Finish.** Go back to the **Terminal window** and press **Enter**.
 
 > 💡 **Why two tabs?** Teams pictures and SharePoint documents live in two different places. Signing in to both means the tool can fetch *everything*. If you only sign in to Teams, you'll still get all your chats and images — documents will simply be listed as "unrecoverable".
 
@@ -152,9 +147,9 @@ The archive then opens in your browser automatically, and Finder reveals `index.
 
 ---
 
-## ⚡ Power-user shortcut: open the SharePoint tab automatically
+## ⚡ Advanced: use a specific SharePoint address
 
-If you'd rather not open the SharePoint tab by hand each time, tell the tool your SharePoint address up front and it opens that second tab for you:
+The tool already opens the Office sign-in tab (`https://powerpoint.cloud.microsoft/`) for you automatically, which works for most organisations. If your company needs you to sign in at your own SharePoint address instead, you can point the second tab there:
 
 **Windows** — in Command Prompt, in the unzipped folder:
 ```bat
