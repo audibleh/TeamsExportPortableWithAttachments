@@ -630,7 +630,12 @@ def _cmd_generate_html_archive(args: argparse.Namespace) -> int:
             print(f"Error generating archive: {exc}")
             return 1
         print(f"Archive folder written to: {output}")
-        print(f"Images copied: {stats['copied']} (missing: {stats['missing']})")
+        print(
+            f"Images copied: {stats.get('images', 0)}, "
+            f"files copied: {stats.get('files', 0)} "
+            f"(missing: {stats.get('missing', 0)}, "
+            f"unrecoverable: {stats.get('unrecoverable', 0)})"
+        )
         print(f"Open {output / 'index.html'} in any browser to view your Teams chat history.")
         return 0
 
