@@ -198,10 +198,28 @@ echo.
 
 :: Run the export
 "%PYTHON%" -m msteams_export export all --outdir "%EXPORT_DIR%" --browser edge --profile "%PROFILE_DIR%" --skip-existing
+set "EXPORT_RC=%ERRORLEVEL%"
 
-if %ERRORLEVEL% neq 0 (
+if not exist "%EXPORT_DIR%\index.json" (
     echo.
-    echo   WARNING: Export completed with errors. Trying to generate archive anyway...
+    echo   ERROR: No chats were exported, so there is nothing to process.
+    echo.
+    echo   This almost always means Teams was not signed in when the
+    echo   export ran. The tool opens its OWN browser window with its own
+    echo   sign-in - being signed in to your normal Edge does NOT count.
+    echo.
+    echo   Please run this again, and during sign-in:
+    echo     1^) Sign in to Teams in the window that opens.
+    echo     2^) WAIT until you can actually SEE your chats.
+    echo     3^) Then come back here and press Enter.
+    echo.
+    pause
+    exit /b 1
+)
+
+if not "%EXPORT_RC%"=="0" (
+    echo.
+    echo   WARNING: Export finished with some errors. Continuing with what was exported...
 )
 
 :: ---- Step 5: Mirror image attachments ----
