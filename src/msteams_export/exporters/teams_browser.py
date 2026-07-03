@@ -263,15 +263,31 @@ def _build_api_script() -> str:
         return "https://authsvc.teams.microsoft.com/v1.0/authz";
       };
 
+      const describeNetworkBlock = (err) => {
+        const detail = err && err.message ? err.message : String(err);
+        return (
+          "Could not reach the Teams service - the network request was blocked before it "
+          + "could complete. This is almost always a corporate VPN, firewall, proxy, or "
+          + "security/antivirus policy blocking the automated browser (not a sign-in problem). "
+          + "Try running the export while OFF the corporate VPN, on a different network, or "
+          + "from a machine without those restrictions. (" + detail + ")"
+        );
+      };
+
       const discover = async (skypeToken) => {
-        const response = await fetch(getAuthzUrl(), {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${skypeToken}`,
-            "Content-Type": "application/json",
-          },
-          body: "{}",
-        });
+        let response;
+        try {
+          response = await fetch(getAuthzUrl(), {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${skypeToken}`,
+              "Content-Type": "application/json",
+            },
+            body: "{}",
+          });
+        } catch (networkError) {
+          throw new Error(describeNetworkBlock(networkError));
+        }
         if (!response.ok) {
           throw new Error(`authz failed: ${response.status} ${response.statusText}`);
         }
@@ -304,9 +320,14 @@ def _build_api_script() -> str:
           lastFetchAt = Date.now();
           // Re-check token freshness before each request
           const freshToken = getIc3Token() || token;
-          const response = await fetch(url, {
-            headers: { "Authorization": `Bearer ${freshToken}` },
-          });
+          let response;
+          try {
+            response = await fetch(url, {
+              headers: { "Authorization": `Bearer ${freshToken}` },
+            });
+          } catch (networkError) {
+            throw new Error(describeNetworkBlock(networkError));
+          }
           if (retryStatuses.has(response.status)) {
             if (attempt >= retryLimit) {
               throw new Error("Rate limited after max retries");

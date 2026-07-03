@@ -191,17 +191,29 @@ echo "  Starting export of all chats."
 echo "  This can take 10-60 minutes depending on chat count."
 echo ""
 
+# Optional: run the export with a VISIBLE browser window.
+# Set EXPORT_HEADED=1 before running if the export fails with "Failed to fetch"
+# on a locked-down corporate machine - a visible browser sometimes gets through.
+HEADED_FLAG=()
+if [ -n "${EXPORT_HEADED:-}" ]; then
+    HEADED_FLAG=(--headed)
+    echo "  (Visible browser mode enabled - a browser window will stay open during export.)"
+    echo ""
+fi
+
 # Run the export
 set +e
 python -m msteams_export export all \
     --outdir "$EXPORT_DIR" \
     --browser edge \
     --profile "$PROFILE_DIR" \
+    "${HEADED_FLAG[@]+"${HEADED_FLAG[@]}"}" \
     --skip-existing || \
 python -m msteams_export export all \
     --outdir "$EXPORT_DIR" \
     --browser auto \
     --profile "$PROFILE_DIR" \
+    "${HEADED_FLAG[@]+"${HEADED_FLAG[@]}"}" \
     --skip-existing
 EXPORT_RC=$?
 set -e
